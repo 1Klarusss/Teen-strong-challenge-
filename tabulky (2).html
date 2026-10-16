@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Přehled z Google Tabulek</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #131313;
+    --panel: #1b1b1b;
+    --ink: #f4f4f1;
+    --muted: #a9a9a2;
+    --line: #333330;
+    --accent: #f2c21b;
+    --zebra: #202020;
+    --display: "Anton", Impact, "Arial Narrow Bold", sans-serif;
+    --body: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    display: flex;
+    flex-direction: column;
+    padding: 20px clamp(12px, 3vw, 40px);
+    gap: 14px;
+  }
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand { font-family: var(--display); text-transform: uppercase; line-height: 1; }
+  .brand .big { font-size: clamp(1.8rem, 4.5vw, 3.2rem); letter-spacing: 0.01em; }
+  .brand .sub { color: var(--accent); font-size: clamp(1rem, 2vw, 1.5rem); margin-left: 10px; }
+  .meta { color: var(--muted); font-size: 1.05rem; text-align: right; font-weight: 500; }
+  h1 {
+    margin: 0;
+    font-family: var(--display);
+    font-weight: 400;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-size: clamp(1.6rem, 3.5vw, 2.6rem);
+    letter-spacing: 0.02em;
+  }
+  nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  nav button {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+    padding: 6px 18px;
+    border-radius: 999px;
+    font: 600 1.1rem var(--body);
+    cursor: pointer;
+  }
+  nav button[aria-current="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #111;
+    font-weight: 700;
+  }
+  nav button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  #progress { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  #bar { height: 100%; width: 0; background: var(--accent); }
+  main {
+    flex: 1;
+    min-height: 0;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: auto;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: clamp(1.1rem, 2vw, 1.7rem); font-weight: 500; }
+  th, td { padding: 10px 18px; text-align: left; border-bottom: 1px solid var(--line); }
+  th {
+    position: sticky; top: 0;
+    background: #0d0d0d;
+    color: var(--accent);
+    font-family: var(--display);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid var(--accent);
+  }
+  tbody tr:nth-child(even) { background: var(--zebra); }
+  .msg { padding: 40px; color: var(--muted); font-size: 1.4rem; }
+  @media (prefers-reduced-motion: reduce) { #bar { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="big">Teen Strong</span><span class="sub">Challenge 2026</span></div>
+  <div class="meta">19. 11. · Legends Gym Olomouc<br><span id="status"></span></div>
+</header>
+<h1 id="title">Načítám…</h1>
+<nav id="tabs" aria-label="Listy tabulky"></nav>
+<div id="progress"><div id="bar"></div></div>
+<main id="view"><div class="msg">Načítám data…</div></main>
+
+<script>
+/* ============================================================
+   NASTAVENÍ – upravte jen tuto část
+   ============================================================ */
+const CONFIG = {
+  // ID tabulky: část URL mezi /d/ a /edit
+  // https://docs.google.com/spreadsheets/d/ TADY_JE_ID /edit
+  SHEET_ID: "1sQmZIy-5heJWsP9A5GzJphVdTh_xjd_qKzZ2xPrbosA",
+
+  // name = text zobrazený na stránce
+  // tab  = přesný název listu dole v tabulce
+  // skip = kolik řádků nahoře přeskočit, aby první zobrazený řádek bylo záhlaví (volitelné)
+  SHEETS: [
+    { name: "Celkové pořadí", tab: "00_celkem", skip: 3 },
+    { name: "Bench press",    tab: "01_Bench_press", skip: 3 },
+    { name: "Mrtvý tah",      tab: "02_Mrtvy_tah", skip: 3 },
+    { name: "Dřep",           tab: "03_Drep", skip: 3 },
+    { name: "Shyby",          tab: "04_Shyby", skip: 3 },
+    { name: "Trojskok",       tab: "05_Trojskok", skip: 3 },
+    { name: "Družstva",       tab: "99_Družstva", skip: 3 }
+  ],
+
+  SWITCH_SECONDS: 15,   // po kolika sekundách se přepne další list
+  REFRESH_SECONDS: 30   // jak často se znovu stáhnou data z Google
+};
+/* ============================================================ */
+
+const $ = (id) => document.getElementById(id);
+const cache = {};          // data jednotlivých listů
+let current = 0;
+let switchTimer = null;
+
+/* Jednoduchý CSV parser (zvládne uvozovky, čárky i nové řádky v buňkách) */
+function parseCSV(text) {
+  const rows = [];
+  let row = [], cell = "", inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cell += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); cell = ""; rows.push(row); row = [];
+    } else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  while (rows.length && !rows[rows.length - 1].some(v => v.trim() !== "")) rows.pop();
+  return rows;
+}
+
+function csvUrl(tab) {
+  return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&headers=0&sheet=${encodeURIComponent(tab)}&_=${Date.now()}`;
+}
+
+async function loadSheet(sheet) {
+  const res = await fetch(csvUrl(sheet.tab), { cache: "no-store" });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  cache[sheet.tab] = parseCSV(await res.text());
+}
+
+async function refreshAll() {
+  try {
+    await Promise.all(CONFIG.SHEETS.map(loadSheet));
+    $("status").textContent = "Aktualizováno " + new Date().toLocaleTimeString("cs-CZ");
+  } catch (e) {
+    $("status").textContent = "Data se nepodařilo obnovit, zkouším znovu…";
+    console.error(e);
+  }
+  render();
+}
+
+function render() {
+  const sheet = CONFIG.SHEETS[current];
+  $("title").textContent = sheet.name;
+  document.querySelectorAll("#tabs button").forEach((b, i) =>
+    b.setAttribute("aria-current", i === current ? "true" : "false"));
+
+  const rows = cache[sheet.tab];
+  const view = $("view");
+  if (!rows) {
+    view.innerHTML = '<div class="msg">Data nejsou k dispozici. Zkontrolujte ID tabulky a sdílení.</div>';
+    return;
+  }
+  const esc = (s) => s.replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+  const skip = sheet.skip || 0;
+  const all = rows.slice(skip);
+  if (!all.length) {
+    view.innerHTML = '<div class="msg">Tento list je prázdný.</div>';
+    return;
+  }
+  const width = Math.max(...all.map(r => r.length));
+  // sloupec se zobrazí, jen když má záhlaví a není technický (Softr)
+  const isSoftr = (i) => rows.slice(0, skip + 1).some(r => (r[i] || "").toLowerCase().includes("softr"));
+  const keep = Array.from({ length: width }, (_, i) => i)
+    .filter(i => (all[0][i] || "").trim() !== "" && !isSoftr(i));
+  const [head, ...rest] = all.map(r => keep.map(i => r[i] || ""));
+  // řádky, kde je kromě pořadového čísla prázdno, se nezobrazí
+  const body = rest.filter(r => r.filter(v => v.trim() !== "").length >= 2);
+  view.innerHTML =
+    "<table><thead><tr>" + head.map(h => `<th>${esc(h)}</th>`).join("") + "</tr></thead><tbody>" +
+    body.map(r => "<tr>" + r.map(v => `<td>${esc(v)}</td>`).join("") + "</tr>").join("") +
+    "</tbody></table>";
+}
+
+function startProgress() {
+  const bar = $("bar");
+  bar.style.transition = "none";
+  bar.style.width = "0";
+  void bar.offsetWidth;
+  bar.style.transition = `width ${CONFIG.SWITCH_SECONDS}s linear`;
+  bar.style.width = "100%";
+}
+
+function show(i) {
+  current = (i + CONFIG.SHEETS.length) % CONFIG.SHEETS.length;
+  render();
+  startProgress();
+  clearTimeout(switchTimer);
+  switchTimer = setTimeout(() => show(current + 1), CONFIG.SWITCH_SECONDS * 1000);
+}
+
+function init() {
+  const nav = $("tabs");
+  CONFIG.SHEETS.forEach((s, i) => {
+    const b = document.createElement("button");
+    b.textContent = s.name;
+    b.onclick = () => show(i);   // klepnutím lze list přepnout ručně
+    nav.appendChild(b);
+  });
+  refreshAll().then(() => show(0));
+  setInterval(refreshAll, CONFIG.REFRESH_SECONDS * 1000);
+}
+init();
+</script>
+</body>
+</html>
