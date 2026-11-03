@@ -223,7 +223,7 @@
 const CONFIG = {
   SHEET_ID: "1sQmZIy-5heJWsP9A5GzJphVdTh_xjd_qKzZ2xPrbosA",
   TAB: "Zadávání",
-  SWITCH_SECONDS: 15,
+  SWITCH_SECONDS: 16,
   REFRESH_SECONDS: 30,
   AUTO_SCROLL_DELAY_SECONDS: 1,
   AUTO_SCROLL_END_DELAY_SECONDS: 1
@@ -645,6 +645,8 @@ function startAutoScroll(duration) {
   // Only the remaining rows are animated.
   cancelAnimationFrame(scrollFrame);
   clearTimeout(scrollStartTimer);
+  scrollFrame = null;
+  scrollStartTimer = null;
   const view = document.querySelector("#view .table-scroll");
   if (!view) return;
   view.scrollTop = 0;
@@ -664,6 +666,15 @@ function startAutoScroll(duration) {
   }, delay);
 }
 
+function getScrollDuration() {
+  return Math.max(
+    CONFIG.SWITCH_SECONDS -
+      CONFIG.AUTO_SCROLL_DELAY_SECONDS -
+      CONFIG.AUTO_SCROLL_END_DELAY_SECONDS,
+    0
+  ) * 1000;
+}
+
 async function refreshAll() {
   try {
     await load();
@@ -676,6 +687,7 @@ async function refreshAll() {
   }
 
   render();
+  startAutoScroll(getScrollDuration());
 }
 
 function startProgress() {
@@ -693,13 +705,7 @@ function show(i) {
   startProgress();
   clearTimeout(switchTimer);
   // Each view is divided into: top pause, scrolling, and bottom pause.
-  const scrollTime = Math.max(
-    CONFIG.SWITCH_SECONDS -
-      CONFIG.AUTO_SCROLL_DELAY_SECONDS -
-      CONFIG.AUTO_SCROLL_END_DELAY_SECONDS,
-    0
-  );
-  startAutoScroll(scrollTime * 1000);
+  startAutoScroll(getScrollDuration());
   switchTimer = setTimeout(() => show(current + 1), CONFIG.SWITCH_SECONDS * 1000);
 }
 
