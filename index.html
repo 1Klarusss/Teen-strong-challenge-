@@ -40,13 +40,26 @@
   .brand .big { font-size: clamp(2.4rem, 6vw, 6rem); letter-spacing: 0.01em; }
   .brand .sub { color: var(--accent); font-size: clamp(1.6rem, 3vw, 3rem); margin-left: 10px; }
   .header-logos { display: flex; align-items: center; gap: clamp(16px, 2.5vw, 32px); }
-  .header-logos svg { display: block; width: auto; height: clamp(64px, 10vw, 120px); max-width: 32vw; }
-  .header-logos .nápisslogem-logo svg { display: none; }
-  .header-logos .nápisslogem-logo img { display: block; width: clamp(190px, 26vw, 330px); height: clamp(64px, 10vw, 120px); max-width: 32vw; }
-  .header-logos .legends-gym-logo svg { width: clamp(90px, 12vw, 140px); aspect-ratio: 1; transform: translateX(8px); }
-  .title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .header-logos svg,
+  .header-logos img,
+  .title-row #status img {
+    display: block;
+    width: auto;
+    height: clamp(48px, 6.8vw, 82px);
+    max-width: 24vw;
+    object-fit: contain;
+  }
+  .header-logos .legends-gym-logo { order: 3; }
+  .header-logos .nutrend-logo { order: 2; padding-right: 43px; }
+  .header-logos .regional-logo { order: 1; padding-right: 43px;}
+  .nápisslogem-logo svg { display: none; }
+  .header-logos .nápisslogem-logo img { max-width: 32vw; }
+  .header-logos .legends-gym-logo svg { width: clamp(48px, 6.8vw, 82px); aspect-ratio: 1;}
+  .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
   .title-row h1 { line-height: 1; }
-  .title-row #status { color: var(--muted); font: 500 1rem/1 var(--body); text-align: right; }
+  .title-row #status { display: flex; align-items: center; gap: 30px; }
+  .title-row #status .nápisslogem-logo { order: 1; }
+  .title-row #status .cafekitchen-logo { order: 2; }
   @media (max-width: 760px) {
     header { grid-template-columns: 1fr auto; }
     .header-logos { grid-column: 1 / -1; grid-row: 2; justify-content: center; }
@@ -209,19 +222,33 @@
     </g>
 </svg>
     </span>
+    <img class="partner-logo cafekitchen-logo" src="logo-cafekitchen.svg" alt="CafeKitchen">
   </div>
 </header>
 <div class="title-row">
   <h1 id="title">Načítám…</h1>
-  <span id="status"></span>
+  <span id="status" aria-label="Loga partnerů">
+    <img src="Nutrend_manual_logotype-page11-cropped.svg" alt="Nutrend">
+    <img class="regional-logo" src="olkraj-logo-yellow.svg" alt="Olomoucký kraj">
+  </span>
 </div>
 <nav id="tabs" aria-label="Listy tabulky"></nav>
 <div id="progress"><div id="bar"></div></div>
 <main id="view"><div class="msg">Načítám data…</div></main>
 <script>
+const headerLogos = document.querySelector(".header-logos");
+const statusLogos = document.getElementById("status");
+const nápisLogo = document.querySelector(".nápisslogem-logo");
+const cafeKitchenLogo = document.querySelector(".cafekitchen-logo");
+const nutrendLogo = statusLogos.querySelector("img:first-child");
+nutrendLogo.classList.add("nutrend-logo");
+
+headerLogos.append(nutrendLogo, statusLogos.querySelector(".regional-logo"));
+statusLogos.append(nápisLogo, cafeKitchenLogo);
+
 /* =========================
-   Configuration
-   ========================= */
+ Configuration
+ ========================= */
 const CONFIG = {
   SHEET_ID: "1sQmZIy-5heJWsP9A5GzJphVdTh_xjd_qKzZ2xPrbosA",
   TAB: "Zadávání",
@@ -680,11 +707,8 @@ function getScrollDuration() {
 async function refreshAll() {
   try {
     await load();
-    getElement("status").textContent =
-      "Aktualizováno " + new Date().toLocaleTimeString("cs-CZ");
   } catch (error) {
     lastError = error.message;
-    getElement("status").textContent = "Chyba: " + error.message;
     console.error(error);
   }
 
