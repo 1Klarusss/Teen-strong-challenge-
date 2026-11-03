@@ -225,7 +225,6 @@ const CONFIG = {
   TAB: "Zadávání",
   SWITCH_SECONDS: 15,
   REFRESH_SECONDS: 30,
-  DISCIPLINE_PAGE_SIZE: 10,
   AUTO_SCROLL_DELAY_SECONDS: 1,
   AUTO_SCROLL_END_DELAY_SECONDS: 1
 };
@@ -247,7 +246,6 @@ const getElement = (id) => document.getElementById(id);
 let people = null;
 let lastError = "";
 let current = 0;
-let currentPage = 0;
 let switchTimer = null;
 let scrollFrame = null;
 let scrollStartTimer = null;
@@ -501,7 +499,6 @@ const VIEWS = [
   },
   ...DISCIPLINES.map(discipline => ({
     name: discipline.name,
-    paginated: true,
     build: () => ({
       head: [
         "Pořadí",
@@ -603,18 +600,7 @@ function render() {
   }
 
   const { head, rows: allRows } = viewDefinition.build();
-  const pageCount = Math.max(
-    1,
-    Math.ceil(allRows.length / CONFIG.DISCIPLINE_PAGE_SIZE)
-  );
-  currentPage = Math.min(currentPage, pageCount - 1);
-
-  const rows = viewDefinition.paginated
-    ? allRows.slice(
-        currentPage * CONFIG.DISCIPLINE_PAGE_SIZE,
-        (currentPage + 1) * CONFIG.DISCIPLINE_PAGE_SIZE
-      )
-    : allRows;
+  const rows = allRows;
   if (!rows.length) {
     view.innerHTML = '<div class="msg">Zatím nejsou zadané žádné výsledky.</div>';
     return;
@@ -702,42 +688,19 @@ function startProgress() {
 }
 
 function show(i) {
-  // A discipline may have several 10-row pages, but all pages share the
-  // discipline's normal display interval.
   current = (i + VIEWS.length) % VIEWS.length;
-  currentPage = 0;
   render();
   startProgress();
   clearTimeout(switchTimer);
-  const viewDefinition = VIEWS[current];
-  const rows = people ? viewDefinition.build().rows : [];
-  const pageCount = viewDefinition.paginated
-    ? Math.max(
-        1,
-        Math.ceil(rows.length / CONFIG.DISCIPLINE_PAGE_SIZE)
-      )
-    : 1;
-  const pageSeconds = CONFIG.SWITCH_SECONDS / pageCount;
-  const endDelay = viewDefinition.paginated
-    ? CONFIG.AUTO_SCROLL_END_DELAY_SECONDS
-    : 0;
-  // Each page is divided into: top pause, scrolling, and bottom pause.
+  // Each view is divided into: top pause, scrolling, and bottom pause.
   const scrollTime = Math.max(
-    pageSeconds - CONFIG.AUTO_SCROLL_DELAY_SECONDS - endDelay,
+    CONFIG.SWITCH_SECONDS -
+      CONFIG.AUTO_SCROLL_DELAY_SECONDS -
+      CONFIG.AUTO_SCROLL_END_DELAY_SECONDS,
     0
   );
   startAutoScroll(scrollTime * 1000);
-  const advance = () => {
-    if (viewDefinition.paginated && currentPage + 1 < pageCount) {
-      currentPage++;
-      render();
-      startAutoScroll(scrollTime * 1000);
-      switchTimer = setTimeout(advance, pageSeconds * 1000);
-    } else {
-      show(current + 1);
-    }
-  };
-  switchTimer = setTimeout(advance, pageSeconds * 1000);
+  switchTimer = setTimeout(() => show(current + 1), CONFIG.SWITCH_SECONDS * 1000);
 }
 
 function init() {
