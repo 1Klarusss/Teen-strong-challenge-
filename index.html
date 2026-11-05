@@ -280,9 +280,10 @@ const CONFIG = {
   SHEET_ID: "1sQmZIy-5heJWsP9A5GzJphVdTh_xjd_qKzZ2xPrbosA",
   TAB: "Zadávání",
   SWITCH_SECONDS: 16,
-  REFRESH_SECONDS: 30,
-  AUTO_SCROLL_DELAY_SECONDS: 1,
-  AUTO_SCROLL_END_DELAY_SECONDS: 1
+  REFRESH_INITIAL_DELAY_SECONDS: 0.1,
+  REFRESH_SECONDS: 16,
+  AUTO_SCROLL_DELAY_SECONDS: 0.8,
+  AUTO_SCROLL_END_DELAY_SECONDS: 1.2
 };
 
 const DISCIPLINES = [
@@ -303,6 +304,8 @@ let people = null;
 let lastError = "";
 let current = 0;
 let switchTimer = null;
+let refreshStartTimer = null;
+let refreshInterval = null;
 let scrollFrame = null;
 let scrollStartTimer = null;
 
@@ -743,6 +746,19 @@ async function refreshAll() {
   startAutoScroll(getScrollDuration());
 }
 
+function scheduleRefreshes() {
+  clearTimeout(refreshStartTimer);
+  clearInterval(refreshInterval);
+
+  refreshStartTimer = setTimeout(() => {
+    refreshAll();
+    refreshInterval = setInterval(
+      refreshAll,
+      CONFIG.REFRESH_SECONDS * 1000
+    );
+  }, CONFIG.REFRESH_INITIAL_DELAY_SECONDS * 1000);
+}
+
 function startProgress() {
   const bar = getElement("bar");
   bar.style.transition = "none";
@@ -759,6 +775,7 @@ function show(i) {
   clearTimeout(switchTimer);
   // Each view is divided into: top pause, scrolling, and bottom pause.
   startAutoScroll(getScrollDuration());
+  scheduleRefreshes();
   switchTimer = setTimeout(() => show(current + 1), CONFIG.SWITCH_SECONDS * 1000);
 }
 
@@ -770,9 +787,7 @@ function init() {
     b.onclick = () => show(index);
     navigation.appendChild(b);
   });
-
   refreshAll().then(() => show(0));
-  setInterval(refreshAll, CONFIG.REFRESH_SECONDS * 1000);
 }
 
 init();
